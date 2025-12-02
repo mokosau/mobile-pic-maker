@@ -2,12 +2,17 @@
 
 import { useState, useRef } from 'react';
 import html2canvas from 'html2canvas';
+import DraggableText from '@/components/DraggableText';
+import SimpleFrame from '@/components/frames/SimpleFrame'; // SimpleFrameをインポート
+
+// フレームの種類を定義
+type FrameType = 'simple' | 'hand' | 'tilted';
 
 export default function Home() {
   const [screenshots, setScreenshots] = useState<string[]>([]);
-  const [title, setTitle] = useState('Your Title Here');
   const [bgColor, setBgColor] = useState('#ffffff');
   const [isLoading, setIsLoading] = useState(false);
+  const [frame, setFrame] = useState<FrameType>('simple'); // フレーム選択のためのstate
 
   const previewRef = useRef<HTMLDivElement>(null);
 
@@ -15,11 +20,10 @@ export default function Home() {
     const files = event.target.files;
     if (files) {
       const fileArray = Array.from(files);
-      // Filter for image files only
       const imageFiles = fileArray.filter(file => file.type.startsWith('image/'));
 
       if (imageFiles.length !== fileArray.length) {
-        alert('Please select only image files.');
+        alert('画像ファイルのみを選択してください。');
         return;
       }
 
@@ -42,45 +46,57 @@ export default function Home() {
       setIsLoading(true);
       html2canvas(previewRef.current, { useCORS: true, background: undefined }).then((canvas) => {
         const link = document.createElement('a');
-        link.download = 'carousel-screenshot.png';
+        link.download = 'screenshot-carousel.png';
         link.href = canvas.toDataURL('image/png');
         link.click();
         setIsLoading(false);
       }).catch(err => {
-        console.error("Error generating image:", err);
-        alert("Sorry, an error occurred while generating the image.");
+        console.error("画像の生成に失敗しました:", err);
+        alert("画像の生成中にエラーが発生しました。");
         setIsLoading(false);
       });
     }
   };
+
+  const renderFrame = (screenshotSrc: string, index: number) => {
+    const image = <img src={screenshotSrc} alt={`アプリスクリーンショット ${index + 1}`} className="w-full h-full object-cover" />;
+
+    switch (frame) {
+      case 'simple':
+        return <SimpleFrame key={index}>{image}</SimpleFrame>;
+      // 他フレームのcaseは後で追加
+      default:
+        return <SimpleFrame key={index}>{image}</SimpleFrame>;
+    }
+  };
+
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 font-sans">
       <header className="bg-white shadow-md py-4 px-6 sm:px-8">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
-            Mobile App Screenshot Generator
+            スマホアプリのスクショ作成ツール
           </h1>
         </div>
       </header>
 
-      {/* Hero Section */}
       <section className="text-center py-10 bg-white">
         <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900">
-          Create Stunning App Store Screenshots in Seconds
+          魅力的なアプリストアのスクリーンショットを数秒で作成
         </h2>
         <p className="mt-4 max-w-2xl mx-auto text-lg text-gray-500">
-          No design skills needed. Just upload your screenshots, add a title, and download a beautiful, store-ready image.
+          デザインスキルは不要です。スクリーンショットをアップロードし、タイトルを追加するだけで、ストアで映える美しい画像が完成します。
         </p>
       </section>
 
       <main className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 p-4 sm:p-8">
         <section className="lg:col-span-1 bg-white rounded-lg shadow p-6 h-fit">
-          <h2 className="text-xl font-semibold mb-4">Editor</h2>
+          <h2 className="text-xl font-semibold mb-4">エディタ</h2>
           <div className="space-y-6">
             <div>
               <label htmlFor="upload" className="block text-sm font-medium text-gray-700 mb-1">
-                Upload Screenshots
+                スクリーンショットをアップロード
               </label>
               <input
                 id="upload"
@@ -92,20 +108,23 @@ export default function Home() {
               />
             </div>
             <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700">
-                Title
+              <label htmlFor="frame" className="block text-sm font-medium text-gray-700">
+                フレームを選択
               </label>
-              <input
-                type="text"
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              />
+              <select
+                id="frame"
+                value={frame}
+                onChange={(e) => setFrame(e.target.value as FrameType)}
+                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+              >
+                <option value="simple">シンプル</option>
+                <option value="hand" disabled>手で持つ（準備中）</option>
+                <option value="tilted" disabled>傾き（準備中）</option>
+              </select>
             </div>
              <div>
                 <label htmlFor="bgColor" className="block text-sm font-medium text-gray-700">
-                    Background Color
+                    背景色
                 </label>
                 <input
                     type="color"
@@ -120,24 +139,20 @@ export default function Home() {
               disabled={isLoading}
               className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              {isLoading ? 'Downloading...' : 'Download Image'}
+              {isLoading ? 'ダウンロード中...' : '画像をダウンロード'}
             </button>
           </div>
         </section>
 
         <section className="lg:col-span-2 bg-gray-200 rounded-lg shadow flex items-center justify-center p-4 sm:p-6 min-h-[400px]">
-          <div ref={previewRef} style={{ backgroundColor: bgColor }} className="p-6 sm:p-10 inline-block">
-            <h2 className="text-2xl sm:text-3xl font-bold text-center mb-6">{title}</h2>
+          <div ref={previewRef} style={{ backgroundColor:bgColor }} className="relative p-6 sm:p-10 inline-block">
+            <DraggableText />
             <div className="flex space-x-4 overflow-x-auto pb-4">
               {screenshots.length > 0 ? (
-                screenshots.map((src, index) => (
-                  <div key={index} className="flex-shrink-0 w-[200px] h-[400px] sm:w-[250px] sm:h-[500px] bg-white rounded-[24px] sm:rounded-[30px] p-2 border-[8px] sm:border-[10px] border-black overflow-hidden shadow-lg">
-                    <img src={src} alt={`App screenshot ${index + 1}`} className="w-full h-full object-cover rounded-[16px] sm:rounded-[20px]" />
-                  </div>
-                ))
+                screenshots.map(renderFrame)
               ) : (
-                <div className="w-[200px] h-[400px] sm:w-[250px] sm:h-[500px] bg-white rounded-[24px] sm:rounded-[30px] p-2 border-[8px] sm:border-[10px] border-black overflow-hidden flex items-center justify-center">
-                  <p className="text-gray-500 text-center px-4">Your images will appear here</p>
+                <div className="w-[250px] h-[500px] flex items-center justify-center">
+                  <p className="text-gray-500 text-center px-4">ここに画像が表示されます</p>
                 </div>
               )}
             </div>
@@ -147,10 +162,10 @@ export default function Home() {
 
       <footer className="bg-white py-6 px-6 sm:px-8 text-center text-sm text-gray-500">
         <div className="space-x-4">
-          <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-gray-800">Terms of Service</a>
-          <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-gray-800">Privacy Policy</a>
+          <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-gray-800">利用規約</a>
+          <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-gray-800">プライバシーポリシー</a>
         </div>
-        <p className="mt-4">&copy; 2024 Screenshot Generator. All Rights Reserved.</p>
+        <p className="mt-4">&copy; 2024 スクリーンショット作成ツール. All Rights Reserved.</p>
       </footer>
     </div>
   );
