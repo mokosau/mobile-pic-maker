@@ -1,156 +1,170 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import html2canvas from 'html2canvas';
+import { useState } from 'react';
+import dynamic from 'next/dynamic';
+
+// Canvasコンポーネントをクライアントサイドのみで動的にインポート
+const Canvas = dynamic(() => import('@/components/Canvas'), {
+  ssr: false,
+  loading: () => <div style={{ width: '400px', height: '711px', backgroundColor: '#f0f0f0' }}></div>
+});
+
+
+// 編集中のテキストオブジェクトの型定義 (Konva版Canvasに合わせる)
+type ActiveObject = {
+  id: string;
+  type: string; // 'text' などの識別子を追加
+  fill: string;
+  fontSize: number;
+} | null;
+
+// 使用するフレーム画像の情報を定義
+const FRAMES = [
+  { name: 'iPhone 14 Pro', path: '/frames/iphone-14-pro.png' },
+  { name: 'iPhone 15', path: '/frames/iphone-15.png' },
+  { name: 'Android (Pixel)', path: '/frames/android-pixel.png' },
+];
 
 export default function Home() {
-  const [screenshots, setScreenshots] = useState<string[]>([]);
-  const [title, setTitle] = useState('Your Title Here');
-  const [bgColor, setBgColor] = useState('#ffffff');
-  const [isLoading, setIsLoading] = useState(false);
+  const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
+  const [addTextTrigger, setAddTextTrigger] = useState(0);
+  const [activeObject, setActiveObject] = useState<ActiveObject>(null);
+  const [exportTrigger, setExportTrigger] = useState(0);
+  const [frame, setFrame] = useState(FRAMES[0].path);
 
-  const previewRef = useRef<HTMLDivElement>(null);
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (files) {
-      const fileArray = Array.from(files);
-      // Filter for image files only
-      const imageFiles = fileArray.filter(file => file.type.startsWith('image/'));
-
-      if (imageFiles.length !== fileArray.length) {
-        alert('Please select only image files.');
-        return;
+  const handleScreenshotUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (screenshotUrl) {
+        URL.revokeObjectURL(screenshotUrl);
       }
+      setScreenshotUrl(URL.createObjectURL(file));
+    }
+  };
 
-      const newScreenshots: string[] = [];
-      imageFiles.forEach(file => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          newScreenshots.push(e.target?.result as string);
-          if (newScreenshots.length === imageFiles.length) {
-            setScreenshots(newScreenshots);
-          }
-        };
-        reader.readAsDataURL(file);
+  const handleAddText = () => setAddTextTrigger((prev) => prev + 1);
+  const handleExport = () => setExportTrigger((prev) => prev + 1);
+
+  // Canvasからのオブジェクト選択イベントを処理
+  const handleObjectSelected = (obj: any) => {
+    // react-konvaから渡されるオブジェクトの構造に合わせて判定
+    if (obj && obj.id && typeof obj.id === 'string' && obj.id.startsWith('text-')) {
+      setActiveObject({
+        id: obj.id,
+        type: 'text',
+        fill: obj.fill || '#000000',
+        fontSize: obj.fontSize || 40,
       });
     }
   };
 
-  const handleDownload = () => {
-    if (previewRef.current) {
-      setIsLoading(true);
-      html2canvas(previewRef.current, { useCORS: true, background: undefined }).then((canvas) => {
-        const link = document.createElement('a');
-        link.download = 'carousel-screenshot.png';
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-        setIsLoading(false);
-      }).catch(err => {
-        console.error("Error generating image:", err);
-        alert("Sorry, an error occurred while generating the image.");
-        setIsLoading(false);
-      });
-    }
+  // Canvasからの選択解除イベントを処理
+  const handleSelectionCleared = () => setActiveObject(null);
+
+  // テキスト編集UIからの変更をハンドル
+  const handleColorChange = (color: string) => {
+    setActiveObject(prev => prev ? { ...prev, fill: color } : null);
+  };
+  const handleFontSizeChange = (size: number) => {
+    setActiveObject(prev => prev ? { ...prev, fontSize: size } : null);
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-100 font-sans">
-      <header className="bg-white shadow-md py-4 px-6 sm:px-8">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
-            Mobile App Screenshot Generator
-          </h1>
-        </div>
+    <div className="flex flex-col min-h-screen bg-gray-100">
+      <header className="bg-white shadow-md py-4 px-6">
+        <h1 className="text-2xl font-bold text-gray-800">スクショ作るくん</h1>
       </header>
 
-      {/* Hero Section */}
-      <section className="text-center py-10 bg-white">
-        <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900">
-          Create Stunning App Store Screenshots in Seconds
-        </h2>
-        <p className="mt-4 max-w-2xl mx-auto text-lg text-gray-500">
-          No design skills needed. Just upload your screenshots, add a title, and download a beautiful, store-ready image.
-        </p>
-      </section>
-
-      <main className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 p-4 sm:p-8">
-        <section className="lg:col-span-1 bg-white rounded-lg shadow p-6 h-fit">
-          <h2 className="text-xl font-semibold mb-4">Editor</h2>
+      <main className="flex-grow flex flex-col lg:flex-row">
+        {/* コントロールパネル */}
+        <aside className="w-full lg:w-80 bg-white p-6 shadow-lg">
+          <h2 className="text-xl font-semibold mb-4">コントロールパネル</h2>
           <div className="space-y-6">
             <div>
-              <label htmlFor="upload" className="block text-sm font-medium text-gray-700 mb-1">
-                Upload Screenshots
+              <label htmlFor="frame-select" className="block text-sm font-medium text-gray-700 mb-2">
+                1. フレームを選択
+              </label>
+              <select
+                id="frame-select"
+                value={frame}
+                onChange={(e) => setFrame(e.target.value)}
+                className="block w-full mt-1 p-2 border border-gray-300 rounded-md"
+              >
+                {FRAMES.map((f) => (
+                  <option key={f.path} value={f.path}>{f.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="screenshot-upload" className="block text-sm font-medium text-gray-700 mb-2">
+                2. スクショをアップロード
               </label>
               <input
-                id="upload"
+                id="screenshot-upload"
                 type="file"
                 accept="image/*"
-                multiple
-                onChange={handleFileChange}
-                className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                onChange={handleScreenshotUpload}
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
               />
             </div>
-            <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700">
-                Title
-              </label>
-              <input
-                type="text"
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-             <div>
-                <label htmlFor="bgColor" className="block text-sm font-medium text-gray-700">
-                    Background Color
-                </label>
-                <input
-                    type="color"
-                    id="bgColor"
-                    value={bgColor}
-                    onChange={(e) => setBgColor(e.target.value)}
-                    className="mt-1 block w-full h-10 rounded-md border-gray-300"
-                />
-            </div>
-            <button
-              onClick={handleDownload}
-              disabled={isLoading}
-              className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              {isLoading ? 'Downloading...' : 'Download Image'}
-            </button>
-          </div>
-        </section>
 
-        <section className="lg:col-span-2 bg-gray-200 rounded-lg shadow flex items-center justify-center p-4 sm:p-6 min-h-[400px]">
-          <div ref={previewRef} style={{ backgroundColor: bgColor }} className="p-6 sm:p-10 inline-block">
-            <h2 className="text-2xl sm:text-3xl font-bold text-center mb-6">{title}</h2>
-            <div className="flex space-x-4 overflow-x-auto pb-4">
-              {screenshots.length > 0 ? (
-                screenshots.map((src, index) => (
-                  <div key={index} className="flex-shrink-0 w-[200px] h-[400px] sm:w-[250px] sm:h-[500px] bg-white rounded-[24px] sm:rounded-[30px] p-2 border-[8px] sm:border-[10px] border-black overflow-hidden shadow-lg">
-                    <img src={src} alt={`App screenshot ${index + 1}`} className="w-full h-full object-cover rounded-[16px] sm:rounded-[20px]" />
-                  </div>
-                ))
-              ) : (
-                <div className="w-[200px] h-[400px] sm:w-[250px] sm:h-[500px] bg-white rounded-[24px] sm:rounded-[30px] p-2 border-[8px] sm:border-[10px] border-black overflow-hidden flex items-center justify-center">
-                  <p className="text-gray-500 text-center px-4">Your images will appear here</p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                3. テキストを追加
+              </label>
+              <button
+                onClick={handleAddText}
+                className="w-full bg-blue-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-600"
+              >
+                テキストを追加
+              </button>
+            </div>
+
+            {/* テキスト編集UI (テキスト選択中のみ表示) */}
+            {activeObject?.type === 'text' && (
+              <div className="border-t pt-4 space-y-4">
+                <h3 className="text-lg font-semibold">テキスト編集</h3>
+                <div>
+                  <label htmlFor="text-color" className="block text-sm font-medium text-gray-700">色</label>
+                  <input id="text-color" type="color" value={activeObject.fill} onChange={(e) => handleColorChange(e.target.value)} className="mt-1 block w-full h-10 border border-gray-300 rounded-md" />
                 </div>
-              )}
+                <div>
+                  <label htmlFor="font-size" className="block text-sm font-medium text-gray-700">フォントサイズ</label>
+                  <input id="font-size" type="number" value={activeObject.fontSize} onChange={(e) => handleFontSizeChange(parseInt(e.target.value, 10))} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" />
+                </div>
+              </div>
+            )}
+
+             <div className="border-t pt-4">
+               <button
+                onClick={handleExport}
+                className="w-full bg-green-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-600"
+              >
+                PNGとしてエクスポート
+              </button>
             </div>
           </div>
-        </section>
+        </aside>
+
+        {/* キャンバスエリア */}
+        <div className="flex-grow bg-gray-200 flex items-center justify-center p-4">
+          <div className="shadow-2xl">
+            <Canvas
+              frameUrl={frame}
+              screenshotUrl={screenshotUrl}
+              addTextTrigger={addTextTrigger}
+              onObjectSelected={handleObjectSelected}
+              onSelectionCleared={handleSelectionCleared}
+              activeObjectProps={activeObject}
+              exportTrigger={exportTrigger}
+            />
+          </div>
+        </div>
       </main>
 
-      <footer className="bg-white py-6 px-6 sm:px-8 text-center text-sm text-gray-500">
-        <div className="space-x-4">
-          <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-gray-800">Terms of Service</a>
-          <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-gray-800">Privacy Policy</a>
-        </div>
-        <p className="mt-4">&copy; 2024 Screenshot Generator. All Rights Reserved.</p>
+      <footer className="bg-white py-4 px-6 text-center text-sm text-gray-500">
+        <p>&copy; 2024 スクショ作るくん. All Rights Reserved.</p>
       </footer>
     </div>
   );

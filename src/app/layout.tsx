@@ -1,32 +1,36 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Noto_Sans_JP } from 'next/font/google'; // 日本語フォントに変更
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin'] });
+// 日本語フォントを読み込み
+const notoSansJp = Noto_Sans_JP({
+  subsets: ['latin'],
+  weight: ['400', '700'],
+});
 
 export const metadata: Metadata = {
-  title: 'Mobile App Screenshot Generator',
-  description: 'Create stunning app store screenshots in seconds. Upload your screenshots, add a title, and download a beautiful, store-ready image.',
+  title: 'スクショ作るくん',
+  description: 'スマホフレームにスクリーンショットをはめ込み、テキストを配置して、魅力的なアプリストア画像を作成するツールです。',
   openGraph: {
-    title: 'Mobile App Screenshot Generator',
-    description: 'Create stunning app store screenshots in seconds.',
-    url: 'https://your-domain.com', // Replace with your actual domain
-    siteName: 'Mobile App Screenshot Generator',
+    title: 'スクショ作るくん',
+    description: 'スマホフレームにはめ込んだ、魅力的なアプリストア画像を作成するツール。',
+    url: 'https://your-domain.com', // FIXME: あとで実際のドメインに置き換える
+    siteName: 'スクショ作るくん',
     images: [
       {
-        url: '/og-image.png', // Path to your OG image in the `public` folder
+        url: '/og-image.png',
         width: 1200,
         height: 630,
       },
     ],
-    locale: 'en_US',
+    locale: 'ja_JP',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Mobile App Screenshot Generator',
-    description: 'Create stunning app store screenshots in seconds.',
-    images: ['/og-image.png'], // Path to your Twitter image
+    title: 'スクショ作るくん',
+    description: 'スマホフレームにはめ込んだ、魅力的なアプリストア画像を作成するツール。',
+    images: ['/og-image.png'],
   },
 };
 
@@ -36,8 +40,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={inter.className}>{children}</body>
+    <html lang="ja">
+      <body className={notoSansJp.className}>{children}</body>
     </html>
   );
 }
