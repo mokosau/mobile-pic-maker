@@ -1,171 +1,152 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import dynamic from 'next/dynamic';
+import { useState, useCallback, useRef } from "react";
+import { toPng } from 'html-to-image';
+import Preview from "@/components/Preview";
+import { deviceFrames, textLayouts } from "./data";
 
-// Canvasコンポーネントをクライアントサイドのみで動的にインポート
-const Canvas = dynamic(() => import('@/components/Canvas'), {
-  ssr: false,
-  loading: () => <div style={{ width: '400px', height: '711px', backgroundColor: '#f0f0f0' }}></div>
-});
-
-
-// 編集中のテキストオブジェクトの型定義 (Konva版Canvasに合わせる)
-type ActiveObject = {
-  id: string;
-  type: string; // 'text' などの識別子を追加
-  fill: string;
-  fontSize: number;
-} | null;
-
-// 使用するフレーム画像の情報を定義
-const FRAMES = [
-  { name: 'iPhone 14 Pro', path: '/frames/iphone-14-pro.png' },
-  { name: 'iPhone 15', path: '/frames/iphone-15.png' },
-  { name: 'Android (Pixel)', path: '/frames/android-pixel.png' },
-];
 
 export default function Home() {
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
-  const [addTextTrigger, setAddTextTrigger] = useState(0);
-  const [activeObject, setActiveObject] = useState<ActiveObject>(null);
-  const [exportTrigger, setExportTrigger] = useState(0);
-  const [frame, setFrame] = useState(FRAMES[0].path);
+  const [selectedDevice, setSelectedDevice] = useState(deviceFrames[0]);
+  const [previewScale, setPreviewScale] = useState(0.3);
+  const [texts, setTexts] = useState(textLayouts['layout1']);
+  const [selectedLayout, setSelectedLayout] = useState('layout1');
+  const previewRef = useRef<HTMLDivElement>(null);
 
-  const handleScreenshotUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (screenshotUrl) {
-        URL.revokeObjectURL(screenshotUrl);
-      }
-      setScreenshotUrl(URL.createObjectURL(file));
+  const handleScreenshotUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      const file = event.target.files[0];
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setScreenshotUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  const handleAddText = () => setAddTextTrigger((prev) => prev + 1);
-  const handleExport = () => setExportTrigger((prev) => prev + 1);
+  const handleDeviceChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const device = deviceFrames.find(d => d.id === event.target.value);
+    if (device) {
+      setSelectedDevice(device);
+    }
+  };
 
-  // Canvasからのオブジェクト選択イベントを処理
-  const handleObjectSelected = (obj: any) => {
-    // react-konvaから渡されるオブジェクトの構造に合わせて判定
-    if (obj && obj.id && typeof obj.id === 'string' && obj.id.startsWith('text-')) {
-      setActiveObject({
-        id: obj.id,
-        type: 'text',
-        fill: obj.fill || '#000000',
-        fontSize: obj.fontSize || 40,
+  const handleLayoutChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const layoutKey = event.target.value as keyof typeof textLayouts;
+    setSelectedLayout(layoutKey);
+    setTexts(textLayouts[layoutKey]);
+  };
+
+  const handleTextChange = (id: number, value: string) => {
+    setTexts(currentTexts =>
+      currentTexts.map(text => text.id === id ? { ...text, value } : text)
+    );
+  };
+
+  const handleDownload = useCallback(async () => {
+    if (previewRef.current === null) {
+      return;
+    }
+    const element = previewRef.current;
+
+    // Temporarily scale up for high-resolution capture
+    const originalScale = element.style.transform;
+    element.style.transform = 'scale(1)';
+
+    try {
+      const dataUrl = await toPng(element, {
+        cacheBust: true,
+        pixelRatio: 2, // Capture at 2x resolution
       });
+      const link = document.createElement('a');
+      link.download = 'mobile-pic.png';
+      link.href = dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error('Image generation failed:', err);
+    } finally {
+      // Restore original scale
+      element.style.transform = originalScale;
     }
-  };
+  }, [previewRef, selectedDevice]);
 
-  // Canvasからの選択解除イベントを処理
-  const handleSelectionCleared = () => setActiveObject(null);
-
-  // テキスト編集UIからの変更をハンドル
-  const handleColorChange = (color: string) => {
-    setActiveObject(prev => prev ? { ...prev, fill: color } : null);
-  };
-  const handleFontSizeChange = (size: number) => {
-    setActiveObject(prev => prev ? { ...prev, fontSize: size } : null);
+  const containerStyle = {
+    width: `${selectedDevice.width}px`,
+    height: `${selectedDevice.height}px`,
+    transform: `scale(${previewScale})`,
+    transformOrigin: 'center',
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-100">
-      <header className="bg-white shadow-md py-4 px-6">
-        <h1 className="text-2xl font-bold text-gray-800">スクショ作るくん</h1>
+    <main className="flex min-h-screen flex-col items-center justify-start p-8 font-sans bg-background text-text">
+      <header className="w-full max-w-7xl mb-8">
+        <h1 className="text-4xl font-display font-bold">スクショ作るくん</h1>
+        <p className="text-secondary">App Store用スクリーンショット生成ツール</p>
       </header>
 
-      <main className="flex-grow flex flex-col lg:flex-row">
-        {/* コントロールパネル */}
-        <aside className="w-full lg:w-80 bg-white p-6 shadow-lg">
-          <h2 className="text-xl font-semibold mb-4">コントロールパネル</h2>
-          <div className="space-y-6">
+      <div className="flex flex-col md:flex-row w-full max-w-7xl grow gap-8">
+        {/* --- Controls Panel --- */}
+        <div className="w-full md:w-1/3 p-6 bg-accent rounded-lg shadow-lg flex flex-col">
+          <h2 className="text-2xl font-display mb-4 border-b-2 border-primary pb-2">Controls</h2>
+
+          <div className="space-y-6 grow">
             <div>
-              <label htmlFor="frame-select" className="block text-sm font-medium text-gray-700 mb-2">
-                1. フレームを選択
-              </label>
-              <select
-                id="frame-select"
-                value={frame}
-                onChange={(e) => setFrame(e.target.value)}
-                className="block w-full mt-1 p-2 border border-gray-300 rounded-md"
-              >
-                {FRAMES.map((f) => (
-                  <option key={f.path} value={f.path}>{f.name}</option>
-                ))}
+              <label htmlFor="device-select" className="block text-sm font-medium text-secondary mb-1">Device Frame</label>
+              <select id="device-select" value={selectedDevice.id} onChange={handleDeviceChange} className="w-full p-2 rounded bg-primary border-secondary">
+                {deviceFrames.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
             </div>
 
             <div>
-              <label htmlFor="screenshot-upload" className="block text-sm font-medium text-gray-700 mb-2">
-                2. スクショをアップロード
-              </label>
-              <input
-                id="screenshot-upload"
-                type="file"
-                accept="image/*"
-                onChange={handleScreenshotUpload}
-                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-              />
+              <label htmlFor="screenshot-upload" className="block text-sm font-medium text-secondary mb-1">Screenshot</label>
+              <input type="file" id="screenshot-upload" onChange={handleScreenshotUpload} accept="image/*" className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-primary file:text-text hover:file:bg-secondary"/>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                3. テキストを追加
-              </label>
-              <button
-                onClick={handleAddText}
-                className="w-full bg-blue-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-600"
-              >
-                テキストを追加
-              </button>
+              <label htmlFor="scale-slider" className="block text-sm font-medium text-secondary mb-1">Preview Size: {Math.round(previewScale * 100)}%</label>
+              <input type="range" id="scale-slider" min="0.1" max="0.5" step="0.01" value={previewScale} onChange={(e) => setPreviewScale(parseFloat(e.target.value))} className="w-full"/>
             </div>
 
-            {/* テキスト編集UI (テキスト選択中のみ表示) */}
-            {activeObject?.type === 'text' && (
-              <div className="border-t pt-4 space-y-4">
-                <h3 className="text-lg font-semibold">テキスト編集</h3>
-                <div>
-                  <label htmlFor="text-color" className="block text-sm font-medium text-gray-700">色</label>
-                  <input id="text-color" type="color" value={activeObject.fill} onChange={(e) => handleColorChange(e.target.value)} className="mt-1 block w-full h-10 border border-gray-300 rounded-md" />
-                </div>
-                <div>
-                  <label htmlFor="font-size" className="block text-sm font-medium text-gray-700">フォントサイズ</label>
-                  <input id="font-size" type="number" value={activeObject.fontSize} onChange={(e) => handleFontSizeChange(parseInt(e.target.value, 10))} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" />
-                </div>
-              </div>
-            )}
-
-             <div className="border-t pt-4">
-               <button
-                onClick={handleExport}
-                className="w-full bg-green-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-600"
-              >
-                PNGとしてエクスポート
-              </button>
+            <div>
+              <label htmlFor="layout-select" className="block text-sm font-medium text-secondary mb-1">Text Layout</label>
+              <select id="layout-select" value={selectedLayout} onChange={handleLayoutChange} className="w-full p-2 rounded bg-primary border-secondary">
+                {Object.keys(textLayouts).map(key => <option key={key} value={key}>{`Layout ${key.slice(-1)}`}</option>)}
+              </select>
             </div>
+
+            {texts.map((text, index) => (
+               <div key={text.id}>
+                 <label htmlFor={`text-input-${text.id}`} className="block text-sm font-medium text-secondary mb-1">{`Text ${index + 1}`}</label>
+                 <input type="text" id={`text-input-${text.id}`} value={text.value} onChange={(e) => handleTextChange(text.id, e.target.value)} className="w-full p-2 rounded bg-primary border-secondary"/>
+               </div>
+            ))}
           </div>
-        </aside>
 
-        {/* キャンバスエリア */}
-        <div className="flex-grow bg-gray-200 flex items-center justify-center p-4">
-          <div className="shadow-2xl">
-            <Canvas
-              frameUrl={frame}
-              screenshotUrl={screenshotUrl}
-              addTextTrigger={addTextTrigger}
-              onObjectSelected={handleObjectSelected}
-              onSelectionCleared={handleSelectionCleared}
-              activeObjectProps={activeObject}
-              exportTrigger={exportTrigger}
-            />
+          <div className="mt-auto pt-6">
+            <button
+              onClick={handleDownload}
+              className="w-full py-3 px-4 bg-secondary text-white font-bold rounded-lg hover:bg-primary transition-colors"
+            >
+              Download Image
+            </button>
           </div>
         </div>
-      </main>
 
-      <footer className="bg-white py-4 px-6 text-center text-sm text-gray-500">
-        <p>&copy; 2024 スクショ作るくん. All Rights Reserved.</p>
-      </footer>
-    </div>
+        {/* --- Preview Area --- */}
+        <div className="w-2/3 flex items-center justify-center p-6 bg-accent rounded-lg shadow-lg overflow-hidden">
+           <div ref={previewRef} style={containerStyle} data-testid="preview-container">
+             <Preview
+               screenshotUrl={screenshotUrl}
+               frameUrl={selectedDevice.frameUrl}
+               texts={texts}
+               containerStyle={{ width: '100%', height: '100%' }}
+             />
+           </div>
+        </div>
+      </div>
+    </main>
   );
 }

@@ -1,11 +1,18 @@
 import type { Metadata } from 'next';
-import { Noto_Sans_JP } from 'next/font/google'; // 日本語フォントに変更
+import { Jura, Noto_Sans_JP } from 'next/font/google';
 import './globals.css';
+
+const jura = Jura({
+  subsets: ['latin'],
+  weight: ['400', '700'],
+  variable: '--font-jura',
+});
 
 // 日本語フォントを読み込み
 const notoSansJp = Noto_Sans_JP({
   subsets: ['latin'],
   weight: ['400', '700'],
+  variable: '--font-noto-sans-jp',
 });
 
 export const metadata: Metadata = {
@@ -41,7 +48,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
-      <body className={notoSansJp.className}>{children}</body>
+      <body className={`${jura.variable} ${notoSansJp.variable} font-sans`}>{children}</body>
     </html>
   );
 }
