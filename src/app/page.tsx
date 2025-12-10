@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
-import { toPng } from 'html-to-image';
+import { useState, useCallback, useRef, useEffect } from "react";
 import Preview from "@/components/Preview";
 import { deviceFrames, textLayouts } from "./data";
+
+// Dynamically import dom-to-image-more to ensure it's client-side only
+const domtoimage = () => import('dom-to-image-more');
 
 
 export default function Home() {
@@ -13,6 +15,7 @@ export default function Home() {
   const [texts, setTexts] = useState(textLayouts['layout1']);
   const [selectedLayout, setSelectedLayout] = useState('layout1');
   const previewRef = useRef<HTMLDivElement>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const handleScreenshotUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
@@ -48,30 +51,33 @@ export default function Home() {
     if (previewRef.current === null) {
       return;
     }
-    const element = previewRef.current;
+    setIsDownloading(true);
 
-    // Temporarily scale up for high-resolution capture
-    const originalScale = element.style.transform;
-    element.style.transform = 'scale(1)';
+    const element = previewRef.current;
+    const scale = 2; // Generate image at 2x resolution
 
     try {
-      const dataUrl = await toPng(element, {
-        cacheBust: true,
-        pixelRatio: 2, // Capture at 2x resolution
+      const dti = (await domtoimage()).default;
+      const dataUrl = await dti.toPng(element, {
+        width: element.clientWidth * scale,
+        height: element.clientHeight * scale,
+        style: {
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+        },
       });
       const link = document.createElement('a');
-      link.download = 'mobile-pic.png';
+      link.download = 'screenshot.png';
       link.href = dataUrl;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
     } catch (err) {
-      console.error('Image generation failed:', err);
+      console.error('oops, something went wrong!', err);
     } finally {
-      // Restore original scale
-      element.style.transform = originalScale;
+      setIsDownloading(false);
     }
-  }, [previewRef, selectedDevice]);
+  }, [previewRef]);
 
   const containerStyle = {
     width: `${selectedDevice.width}px`,
@@ -128,16 +134,17 @@ export default function Home() {
           <div className="mt-auto pt-6">
             <button
               onClick={handleDownload}
-              className="w-full py-3 px-4 bg-secondary text-white font-bold rounded-lg hover:bg-primary transition-colors"
+              disabled={isDownloading}
+              className="w-full py-3 px-4 bg-secondary text-white font-bold rounded-lg hover:bg-primary transition-colors disabled:bg-gray-500"
             >
-              Download Image
+              {isDownloading ? '生成中...' : 'Download Image'}
             </button>
           </div>
         </div>
 
         {/* --- Preview Area --- */}
         <div className="w-2/3 flex items-center justify-center p-6 bg-accent rounded-lg shadow-lg overflow-hidden">
-           <div ref={previewRef} style={containerStyle} data-testid="preview-container">
+           <div ref={previewRef} data-testid="preview-container" style={containerStyle}>
              <Preview
                screenshotUrl={screenshotUrl}
                frameUrl={selectedDevice.frameUrl}

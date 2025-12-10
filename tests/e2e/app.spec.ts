@@ -67,22 +67,26 @@ test.describe('Mobile Pic Maker E2E Test', () => {
     expect(newWidth).toBeGreaterThan(initialWidth);
   });
 
-  // test('should trigger a download when download button is clicked', async ({ page }) => {
-  //   test.setTimeout(60000); // Increase timeout for this test
+  test('should trigger a download when download button is clicked', async ({ page }) => {
+    test.setTimeout(60000); // Increase timeout for image generation
 
-  //   // Upload a screenshot first to have some content
-  //   const fileChooserPromise = page.waitForEvent('filechooser');
-  //   await page.locator('#screenshot-upload').click();
-  //   const fileChooser = await fileChooserPromise;
-  //   await fileChooser.setFiles(screenshotPath);
+    // Upload a screenshot first
+    const fileChooserPromise = page.waitForEvent('filechooser');
+    await page.locator('#screenshot-upload').click();
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles(screenshotPath);
+    await expect(page.locator('#screenshot-preview img[alt="Screenshot"]')).toBeVisible();
 
-  //   const downloadPromise = page.waitForEvent('download');
-  //   await page.locator('button:has-text("Download Image")').click();
+    // Start waiting for the download
+    const downloadPromise = page.waitForEvent('download');
 
-  //   const download = await downloadPromise;
-  //   expect(download.suggestedFilename()).toBe('mobile-pic.png');
-  // });
-  // NOTE: This test is commented out because html-to-image library's download trigger
-  // is not reliably captured by Playwright in a headless environment, causing timeouts.
-  // The functionality works in a manual browser test.
+    // Click the download button
+    await page.locator('button:has-text("Download Image")').click();
+
+    // Wait for the download to complete
+    const download = await downloadPromise;
+
+    // Check if the downloaded file name is correct
+    expect(download.suggestedFilename()).toBe('screenshot.png');
+  });
 });
