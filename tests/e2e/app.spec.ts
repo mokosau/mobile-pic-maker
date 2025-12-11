@@ -1,8 +1,19 @@
 import { test, expect } from '@playwright/test';
 import path from 'path';
 
-test.describe('Mobile Pic Maker E2E Test', () => {
-  const screenshotPath = path.resolve(__dirname, '..', 'fixtures', 'test-screenshot.png');
+test.describe('Integrated Mobile Pic Maker E2E Test', () => {
+  const screenshotPath1 = path.resolve(__dirname, '..', 'fixtures', 'test-screenshot.png');
+  // Create a second dummy screenshot for multi-upload testing
+  const screenshotPath2 = path.resolve(__dirname, '..', 'fixtures', 'test-screenshot-2.png');
+
+  test.beforeAll(async () => {
+    // Ensure the second test image exists
+    const fs = require('fs');
+    if (!fs.existsSync(screenshotPath2)) {
+      const pythonScript = "from PIL import Image; img = Image.new('RGB', (100, 200), color = 'blue'); img.save('tests/fixtures/test-screenshot-2.png')";
+      require('child_process').execSync(`python3 -c "${pythonScript}"`);
+    }
+  });
 
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
@@ -11,71 +22,45 @@ test.describe('Mobile Pic Maker E2E Test', () => {
   test('should load the page correctly and display initial UI', async ({ page }) => {
     await expect(page.locator('h1')).toHaveText('スクショ作るくん');
     await expect(page.locator('h2')).toHaveText('Controls');
-    await expect(page.locator('#device-select')).toHaveValue('iphone15');
-    await expect(page.locator('#screenshot-preview')).toBeVisible();
+    await expect(page.locator('label[for="upload"]')).toBeVisible();
+    await expect(page.locator('label[for="bgColor"]')).toBeVisible();
+    await expect(page.locator('button:has-text("Download Image")')).toBeVisible();
+    await expect(page.locator('p:has-text("ここにプレビューが表示されます")')).toBeVisible();
   });
 
-  test('should allow uploading a screenshot', async ({ page }) => {
+  test('should allow uploading multiple screenshots', async ({ page }) => {
     const fileChooserPromise = page.waitForEvent('filechooser');
-    await page.locator('#screenshot-upload').click();
+    await page.locator('#upload').click();
     const fileChooser = await fileChooserPromise;
-    await fileChooser.setFiles(screenshotPath);
+    await fileChooser.setFiles([screenshotPath1, screenshotPath2]);
 
-    const screenshotImage = page.locator('#screenshot-preview img[alt="Screenshot"]');
-    await expect(screenshotImage).toBeVisible();
-    const src = await screenshotImage.getAttribute('src');
-    expect(src).toContain('data:image/png;base64,');
+    // Check if two images are rendered in the preview
+    await expect(page.locator('img[alt^="アプリスクリーンショット"]')).toHaveCount(2);
   });
 
-  test('should allow changing the device frame', async ({ page }) => {
-    await page.locator('#device-select').selectOption('androidpixel');
-    await expect(page.locator('#device-select')).toHaveValue('androidpixel');
+  test('should allow changing the background color', async ({ page }) => {
+    const newBgColor = '#ff0000'; // Red
+    await page.locator('#bgColor').fill(newBgColor);
 
-    const frameImage = page.locator('#screenshot-preview img[alt="Device Frame"]');
-    const src = await frameImage.getAttribute('src');
-    expect(src).not.toBeNull();
-    expect(src!).toContain('android-pixel.png');
+    const previewArea = page.getByTestId('preview-area');
+    await expect(previewArea).toHaveCSS('background-color', 'rgb(255, 0, 0)');
   });
 
-  test('should allow changing text layout and updating text', async ({ page }) => {
-    await page.locator('#layout-select').selectOption('layout2');
-    await expect(page.locator('#layout-select')).toHaveValue('layout2');
-
-    const textInput = page.locator('input[id^="text-input-"]');
-    await expect(textInput).toHaveCount(1);
-    await expect(textInput).toHaveValue('画面下部のテキスト');
-
-    await textInput.fill('新しいテストテキスト');
-    await expect(textInput).toHaveValue('新しいテストテキスト');
-
-    const previewText = page.locator('#screenshot-preview div').filter({ hasText: '新しいテストテキスト' });
-    await expect(previewText).toBeVisible();
+  test('should contain a draggable text element', async ({ page }) => {
+    await expect(page.locator('div[style*="cursor: move"]')).toBeVisible();
+    // Use a more specific selector within the draggable component
+    await expect(page.locator('.react-draggable .text-2xl')).toHaveText('ここにテキスト');
   });
 
-  test('should adjust preview size with slider', async ({ page }) => {
-    const previewContainer = page.getByTestId('preview-container');
-    const initialBoundingBox = await previewContainer.boundingBox();
-    const initialWidth = initialBoundingBox ? initialBoundingBox.width : 0;
+  test('should trigger a download on button click', async ({ page }) => {
+    test.setTimeout(60000);
 
-    await page.locator('#scale-slider').fill('0.45');
-
-    // Wait for CSS transition to complete
-    await page.waitForTimeout(500);
-
-    const newBoundingBox = await previewContainer.boundingBox();
-    const newWidth = newBoundingBox ? newBoundingBox.width : 0;
-    expect(newWidth).toBeGreaterThan(initialWidth);
-  });
-
-  test('should trigger a download when download button is clicked', async ({ page }) => {
-    test.setTimeout(60000); // Increase timeout for image generation
-
-    // Upload a screenshot first
+    // Upload at least one screenshot
     const fileChooserPromise = page.waitForEvent('filechooser');
-    await page.locator('#screenshot-upload').click();
+    await page.locator('#upload').click();
     const fileChooser = await fileChooserPromise;
-    await fileChooser.setFiles(screenshotPath);
-    await expect(page.locator('#screenshot-preview img[alt="Screenshot"]')).toBeVisible();
+    await fileChooser.setFiles(screenshotPath1);
+    await expect(page.locator('img[alt^="アプリスクリーンショット"]')).toHaveCount(1);
 
     // Start waiting for the download
     const downloadPromise = page.waitForEvent('download');
@@ -87,6 +72,6 @@ test.describe('Mobile Pic Maker E2E Test', () => {
     const download = await downloadPromise;
 
     // Check if the downloaded file name is correct
-    expect(download.suggestedFilename()).toBe('screenshot.png');
+    expect(download.suggestedFilename()).toBe('screenshot-composition.png');
   });
 });

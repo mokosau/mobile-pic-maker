@@ -15,7 +15,8 @@
     "marked": "^12.0.2",
     "next": "14.2.3",
     "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "react-dom": "18.3.1",
+    "react-draggable": "^4.5.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",
