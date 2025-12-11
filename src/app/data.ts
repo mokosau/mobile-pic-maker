@@ -1,4 +1,16 @@
-// src/app/data.ts
+import type { CSSProperties } from 'react';
+
+export type TextLayout = {
+  id: number;
+  value: string;
+  style: CSSProperties;
+};
+
+export type LayoutKey = 'layout1' | 'layout2' | 'layout3';
+
+type TextLayouts = {
+  [key in LayoutKey]: TextLayout[];
+};
 
 export const deviceFrames = [
   { id: 'iphone15', name: 'iPhone 15', frameUrl: '/frames/iphone-15.png', width: 1170, height: 2532 },
@@ -6,7 +18,7 @@ export const deviceFrames = [
   { id: 'androidpixel', name: 'Android Pixel', frameUrl: '/frames/android-pixel.png', width: 1080, height: 2400 },
 ];
 
-export const textLayouts = {
+export const textLayouts: TextLayouts = {
   'layout1': [
     { id: 1, value: 'キャッチーな見出し', style: { top: '10%', left: '50%', transform: 'translateX(-50%)', fontSize: '48px', fontWeight: 'bold' } },
     { id: 2, value: '補足テキストをここに', style: { top: '20%', left: '50%', transform: 'translateX(-50%)', fontSize: '24px' } },

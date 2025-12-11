@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import Preview from "@/components/Preview";
-import { deviceFrames, textLayouts } from "./data";
+import { deviceFrames, textLayouts, TextLayout, LayoutKey } from "./data";
 
 // Dynamically import dom-to-image-more to ensure it's client-side only
 const domtoimage = () => import('dom-to-image-more');
@@ -12,8 +12,8 @@ export default function Home() {
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
   const [selectedDevice, setSelectedDevice] = useState(deviceFrames[0]);
   const [previewScale, setPreviewScale] = useState(0.3);
-  const [texts, setTexts] = useState(textLayouts['layout1']);
-  const [selectedLayout, setSelectedLayout] = useState('layout1');
+  const [texts, setTexts] = useState<TextLayout[]>(textLayouts['layout1']);
+  const [selectedLayout, setSelectedLayout] = useState<LayoutKey>('layout1');
   const previewRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -36,7 +36,7 @@ export default function Home() {
   };
 
   const handleLayoutChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const layoutKey = event.target.value as keyof typeof textLayouts;
+    const layoutKey = event.target.value as LayoutKey;
     setSelectedLayout(layoutKey);
     setTexts(textLayouts[layoutKey]);
   };
