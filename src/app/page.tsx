@@ -1,36 +1,34 @@
-"use client";
+'use client';
 
-import { useState, useCallback, useRef, useEffect } from "react";
-import dynamic from 'next/dynamic';
-import SimpleFrame from "@/components/frames/SimpleFrame"; // SimpleFrameをインポート
-
-const DraggableText = dynamic(() => import('@/components/DraggableText'), { ssr: false });
+import { useState, useRef } from 'react';
+import html2canvas from 'html2canvas';
 
 export default function Home() {
   const [screenshots, setScreenshots] = useState<string[]>([]);
-  const [bgColor, setBgColor] = useState('#0d1b2a'); // Default to blueprint background
-  const [isDownloading, setIsDownloading] = useState(false);
+  const [title, setTitle] = useState('Your Title Here');
+  const [bgColor, setBgColor] = useState('#ffffff');
+  const [isLoading, setIsLoading] = useState(false);
+
   const previewRef = useRef<HTMLDivElement>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files) {
       const fileArray = Array.from(files);
+      // Filter for image files only
       const imageFiles = fileArray.filter(file => file.type.startsWith('image/'));
 
       if (imageFiles.length !== fileArray.length) {
-        alert('画像ファイルのみを選択してください。');
+        alert('Please select only image files.');
         return;
       }
 
       const newScreenshots: string[] = [];
-      let loadedCount = 0;
       imageFiles.forEach(file => {
         const reader = new FileReader();
         reader.onload = (e) => {
           newScreenshots.push(e.target?.result as string);
-          loadedCount++;
-          if (loadedCount === imageFiles.length) {
+          if (newScreenshots.length === imageFiles.length) {
             setScreenshots(newScreenshots);
           }
         };
@@ -39,59 +37,50 @@ export default function Home() {
     }
   };
 
-  const handleDownload = useCallback(async () => {
-    if (previewRef.current === null) {
-      return;
+  const handleDownload = () => {
+    if (previewRef.current) {
+      setIsLoading(true);
+      html2canvas(previewRef.current, { useCORS: true, background: undefined }).then((canvas) => {
+        const link = document.createElement('a');
+        link.download = 'carousel-screenshot.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        setIsLoading(false);
+      }).catch(err => {
+        console.error("Error generating image:", err);
+        alert("Sorry, an error occurred while generating the image.");
+        setIsLoading(false);
+      });
     }
-    setIsDownloading(true);
-
-    try {
-      const domtoimage = (await import('dom-to-image-more')).default;
-      // Temporarily remove box-shadow for cleaner capture
-      const element = previewRef.current;
-      const originalShadow = element.style.boxShadow;
-      element.style.boxShadow = 'none';
-
-      const dataUrl = await domtoimage.toPng(element, { quality: 1.0, scale: 2 });
-
-      // Restore box-shadow
-      element.style.boxShadow = originalShadow;
-
-      const link = document.createElement('a');
-      link.download = 'screenshot-composition.png';
-      link.href = dataUrl;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (err) {
-      console.error('oops, something went wrong!', err);
-      alert('画像の生成に失敗しました。');
-    } finally {
-      setIsDownloading(false);
-    }
-  }, [previewRef]);
-
-  const renderFrame = (screenshotSrc: string, index: number) => {
-    const image = <img src={screenshotSrc} alt={`アプリスクリーンショット ${index + 1}`} className="w-full h-full object-cover" />;
-    return <SimpleFrame key={index}>{image}</SimpleFrame>;
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-start p-8 font-sans bg-background text-text">
-      <header className="w-full max-w-7xl mb-8">
-        <h1 className="text-4xl font-display font-bold">スクショ作るくん</h1>
-        <p className="text-secondary">App Store用スクリーンショット生成ツール</p>
+    <div className="flex flex-col min-h-screen bg-gray-100 font-sans">
+      <header className="bg-white shadow-md py-4 px-6 sm:px-8">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
+            Mobile App Screenshot Generator
+          </h1>
+        </div>
       </header>
 
-      <div className="flex flex-col md:flex-row w-full max-w-7xl grow gap-8">
-        {/* --- Controls Panel --- */}
-        <div className="w-full md:w-1/3 p-6 bg-accent rounded-lg shadow-lg flex flex-col h-fit">
-          <h2 className="text-2xl font-display mb-4 border-b-2 border-primary pb-2">Controls</h2>
+      {/* Hero Section */}
+      <section className="text-center py-10 bg-white">
+        <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900">
+          Create Stunning App Store Screenshots in Seconds
+        </h2>
+        <p className="mt-4 max-w-2xl mx-auto text-lg text-gray-500">
+          No design skills needed. Just upload your screenshots, add a title, and download a beautiful, store-ready image.
+        </p>
+      </section>
 
-          <div className="space-y-6 grow">
+      <main className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 p-4 sm:p-8">
+        <section className="lg:col-span-1 bg-white rounded-lg shadow p-6 h-fit">
+          <h2 className="text-xl font-semibold mb-4">Editor</h2>
+          <div className="space-y-6">
             <div>
-              <label htmlFor="upload" className="block text-sm font-medium text-secondary mb-1">
-                スクリーンショットをアップロード
+              <label htmlFor="upload" className="block text-sm font-medium text-gray-700 mb-1">
+                Upload Screenshots
               </label>
               <input
                 id="upload"
@@ -99,51 +88,70 @@ export default function Home() {
                 accept="image/*"
                 multiple
                 onChange={handleFileChange}
-                className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-primary file:text-text hover:file:bg-secondary"
+                className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
               />
             </div>
-
             <div>
-              <label htmlFor="bgColor" className="block text-sm font-medium text-secondary">
-                  背景色
+              <label htmlFor="title" className="block text-sm font-medium text-gray-700">
+                Title
               </label>
               <input
-                  type="color"
-                  id="bgColor"
-                  value={bgColor}
-                  onChange={(e) => setBgColor(e.target.value)}
-                  className="mt-1 block w-full h-10 rounded-md border-primary bg-primary"
+                type="text"
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
-          </div>
-
-          <div className="mt-auto pt-6">
+             <div>
+                <label htmlFor="bgColor" className="block text-sm font-medium text-gray-700">
+                    Background Color
+                </label>
+                <input
+                    type="color"
+                    id="bgColor"
+                    value={bgColor}
+                    onChange={(e) => setBgColor(e.target.value)}
+                    className="mt-1 block w-full h-10 rounded-md border-gray-300"
+                />
+            </div>
             <button
               onClick={handleDownload}
-              disabled={isDownloading}
-              className="w-full py-3 px-4 bg-secondary text-white font-bold rounded-lg hover:bg-primary transition-colors disabled:bg-gray-500"
+              disabled={isLoading}
+              className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              {isDownloading ? '生成中...' : 'Download Image'}
+              {isLoading ? 'Downloading...' : 'Download Image'}
             </button>
           </div>
-        </div>
+        </section>
 
-        {/* --- Preview Area --- */}
-        <div className="w-2/3 flex items-center justify-center p-6 bg-accent rounded-lg shadow-lg overflow-hidden">
-           <div ref={previewRef} data-testid="preview-area" style={{ backgroundColor: bgColor }} className="relative p-10 rounded-lg">
-             <DraggableText />
-             <div className="flex space-x-4 overflow-x-auto pb-4">
+        <section className="lg:col-span-2 bg-gray-200 rounded-lg shadow flex items-center justify-center p-4 sm:p-6 min-h-[400px]">
+          <div ref={previewRef} style={{ backgroundColor: bgColor }} className="p-6 sm:p-10 inline-block">
+            <h2 className="text-2xl sm:text-3xl font-bold text-center mb-6">{title}</h2>
+            <div className="flex space-x-4 overflow-x-auto pb-4">
               {screenshots.length > 0 ? (
-                screenshots.map(renderFrame)
+                screenshots.map((src, index) => (
+                  <div key={index} className="flex-shrink-0 w-[200px] h-[400px] sm:w-[250px] sm:h-[500px] bg-white rounded-[24px] sm:rounded-[30px] p-2 border-[8px] sm:border-[10px] border-black overflow-hidden shadow-lg">
+                    <img src={src} alt={`App screenshot ${index + 1}`} className="w-full h-full object-cover rounded-[16px] sm:rounded-[20px]" />
+                  </div>
+                ))
               ) : (
-                <div className="w-[270px] h-[585px] flex items-center justify-center bg-primary/20 rounded-xl">
-                  <p className="text-secondary text-center px-4">ここにプレビューが表示されます</p>
+                <div className="w-[200px] h-[400px] sm:w-[250px] sm:h-[500px] bg-white rounded-[24px] sm:rounded-[30px] p-2 border-[8px] sm:border-[10px] border-black overflow-hidden flex items-center justify-center">
+                  <p className="text-gray-500 text-center px-4">Your images will appear here</p>
                 </div>
               )}
             </div>
-           </div>
+          </div>
+        </section>
+      </main>
+
+      <footer className="bg-white py-6 px-6 sm:px-8 text-center text-sm text-gray-500">
+        <div className="space-x-4">
+          <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-gray-800">Terms of Service</a>
+          <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-gray-800">Privacy Policy</a>
         </div>
-      </div>
-    </main>
+        <p className="mt-4">&copy; 2024 Screenshot Generator. All Rights Reserved.</p>
+      </footer>
+    </div>
   );
 }

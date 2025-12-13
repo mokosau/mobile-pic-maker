@@ -1,43 +1,32 @@
 import type { Metadata } from 'next';
-import { Jura, Noto_Sans_JP } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import './globals.css';
 
-const jura = Jura({
-  subsets: ['latin'],
-  weight: ['400', '700'],
-  variable: '--font-jura',
-});
-
-// 日本語フォントを読み込み
-const notoSansJp = Noto_Sans_JP({
-  subsets: ['latin'],
-  weight: ['400', '700'],
-  variable: '--font-noto-sans-jp',
-});
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'スクショ作るくん',
-  description: 'スマホフレームにスクリーンショットをはめ込み、テキストを配置して、魅力的なアプリストア画像を作成するツールです。',
+  title: 'Mobile App Screenshot Generator',
+  description: 'Create stunning app store screenshots in seconds. Upload your screenshots, add a title, and download a beautiful, store-ready image.',
   openGraph: {
-    title: 'スクショ作るくん',
-    description: 'スマホフレームにはめ込んだ、魅力的なアプリストア画像を作成するツール。',
-    url: 'https://your-domain.com', // FIXME: あとで実際のドメインに置き換える
-    siteName: 'スクショ作るくん',
+    title: 'Mobile App Screenshot Generator',
+    description: 'Create stunning app store screenshots in seconds.',
+    url: 'https://your-domain.com', // Replace with your actual domain
+    siteName: 'Mobile App Screenshot Generator',
     images: [
       {
-        url: '/og-image.png',
+        url: '/og-image.png', // Path to your OG image in the `public` folder
         width: 1200,
         height: 630,
       },
     ],
-    locale: 'ja_JP',
+    locale: 'en_US',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'スクショ作るくん',
-    description: 'スマホフレームにはめ込んだ、魅力的なアプリストア画像を作成するツール。',
-    images: ['/og-image.png'],
+    title: 'Mobile App Screenshot Generator',
+    description: 'Create stunning app store screenshots in seconds.',
+    images: ['/og-image.png'], // Path to your Twitter image
   },
 };
 
@@ -47,8 +36,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ja">
-      <body className={`${jura.variable} ${notoSansJp.variable} font-sans`}>{children}</body>
+    <html lang="en">
+      <body className={inter.className}>{children}</body>
     </html>
   );
 }
