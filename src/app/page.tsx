@@ -3,18 +3,57 @@
 import { useState, useRef } from 'react';
 import html2canvas from 'html2canvas';
 import DraggableText from '@/components/DraggableText';
-import SimpleFrame from '@/components/frames/SimpleFrame'; // SimpleFrameをインポート
+import SimpleFrame from '@/components/frames/SimpleFrame';
+import HandFrame from '@/components/frames/HandFrame';
+import TiltedFrame from '@/components/frames/TiltedFrame';
 
 // フレームの種類を定義
 type FrameType = 'simple' | 'hand' | 'tilted';
 
+// テキスト要素の型を定義
+interface TextElement {
+  id: number;
+  text: string;
+  position: { x: number; y: number };
+  color: string;
+}
+
 export default function Home() {
   const [screenshots, setScreenshots] = useState<string[]>([]);
   const [bgColor, setBgColor] = useState('#ffffff');
+  const [frameColor, setFrameColor] = useState('#000000');
   const [isLoading, setIsLoading] = useState(false);
-  const [frame, setFrame] = useState<FrameType>('simple'); // フレーム選択のためのstate
+  const [frame, setFrame] = useState<FrameType>('simple');
+  const [textElements, setTextElements] = useState<TextElement[]>([
+    { id: 1, text: 'テキストを入力', position: { x: 50, y: 50 }, color: '#000000' },
+  ]);
 
   const previewRef = useRef<HTMLDivElement>(null);
+
+  const addTextElement = () => {
+    setTextElements([
+      ...textElements,
+      { id: Date.now(), text: '新しいテキスト', position: { x: 50, y: 100 }, color: '#000000' },
+    ]);
+  };
+
+  const handleTextChange = (id: number, newText: string) => {
+    setTextElements(textElements.map(el =>
+      el.id === id ? { ...el, text: newText } : el
+    ));
+  };
+
+  const handleTextStop = (id: number, position: { x: number; y: number }) => {
+    setTextElements(textElements.map(el =>
+      el.id === id ? { ...el, position } : el
+    ));
+  };
+
+  const handleTextColorChange = (id: number, newColor: string) => {
+    setTextElements(textElements.map(el =>
+      el.id === id ? { ...el, color: newColor } : el
+    ));
+  };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -63,10 +102,13 @@ export default function Home() {
 
     switch (frame) {
       case 'simple':
-        return <SimpleFrame key={index}>{image}</SimpleFrame>;
-      // 他フレームのcaseは後で追加
+        return <SimpleFrame key={index} color={frameColor}>{image}</SimpleFrame>;
+      case 'hand':
+        return <HandFrame key={index} color={frameColor}>{image}</HandFrame>;
+      case 'tilted':
+        return <TiltedFrame key={index} color={frameColor}>{image}</TiltedFrame>;
       default:
-        return <SimpleFrame key={index}>{image}</SimpleFrame>;
+        return <SimpleFrame key={index} color={frameColor}>{image}</SimpleFrame>;
     }
   };
 
@@ -119,7 +161,7 @@ export default function Home() {
               >
                 <option value="simple">シンプル</option>
                 <option value="hand" disabled>手で持つ（準備中）</option>
-                <option value="tilted" disabled>傾き（準備中）</option>
+                <option value="tilted">傾き</option>
               </select>
             </div>
              <div>
@@ -134,6 +176,26 @@ export default function Home() {
                     className="mt-1 block w-full h-10 rounded-md border-gray-300"
                 />
             </div>
+            <div>
+                <label htmlFor="frameColor" className="block text-sm font-medium text-gray-700">
+                    フレームの色
+                </label>
+                <input
+                    type="color"
+                    id="frameColor"
+                    value={frameColor}
+                    onChange={(e) => setFrameColor(e.target.value)}
+                    className="mt-1 block w-full h-10 rounded-md border-gray-300"
+                />
+            </div>
+            <div>
+              <button
+                onClick={addTextElement}
+                className="w-full bg-gray-200 text-gray-800 font-bold py-3 px-4 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                テキストを追加
+              </button>
+            </div>
             <button
               onClick={handleDownload}
               disabled={isLoading}
@@ -146,7 +208,18 @@ export default function Home() {
 
         <section className="lg:col-span-2 bg-gray-200 rounded-lg shadow flex items-center justify-center p-4 sm:p-6 min-h-[400px]">
           <div ref={previewRef} style={{ backgroundColor:bgColor }} className="relative p-6 sm:p-10 inline-block">
-            <DraggableText />
+            {textElements.map(el => (
+              <DraggableText
+                key={el.id}
+                id={el.id}
+                value={el.text}
+                position={el.position}
+                color={el.color}
+                onChange={handleTextChange}
+                onStop={handleTextStop}
+                onColorChange={handleTextColorChange}
+              />
+            ))}
             <div className="flex space-x-4 overflow-x-auto pb-4">
               {screenshots.length > 0 ? (
                 screenshots.map(renderFrame)
