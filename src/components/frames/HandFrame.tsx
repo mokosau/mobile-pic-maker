@@ -5,7 +5,7 @@ type Props = {
   color: string;
 };
 
-const SimpleFrame: React.FC<Props> = ({ children, color }) => {
+const HandFrame: React.FC<Props> = ({ children, color }) => {
   return (
     <div
       className="flex-shrink-0 w-[250px] h-[500px] bg-white rounded-[30px] p-2 border-[10px] overflow-hidden shadow-lg"
@@ -18,4 +18,4 @@ const SimpleFrame: React.FC<Props> = ({ children, color }) => {
   );
 };
 
-export default SimpleFrame;
+export default HandFrame;
